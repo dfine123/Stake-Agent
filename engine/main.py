@@ -5,10 +5,12 @@ Phase 1: CLI prototype. Run with:
 """
 
 import argparse
+import asyncio
 import sys
 
 from pydantic import ValidationError
 
+from engine.brain.orchestrator import Orchestrator
 from engine.config import load_config
 
 
@@ -21,6 +23,7 @@ def main() -> int:
 
     run = sub.add_parser("run", help="Run a session from a config file")
     run.add_argument("--config", required=True, help="Path to session YAML config")
+    run.add_argument("--db", default=None, help="Optional SQLite DB path (overrides default)")
 
     validate = sub.add_parser("validate", help="Validate a config file and exit")
     validate.add_argument("--config", required=True, help="Path to session YAML config")
@@ -42,8 +45,13 @@ def main() -> int:
         return 0
 
     if args.command == "run":
-        print(f"[scaffolding] loaded config: {args.config}")
-        print("[scaffolding] session loop not implemented yet (Task 1.10)")
+        orch = Orchestrator(cfg, db_path=args.db)
+        try:
+            end_reason = asyncio.run(orch.run())
+        except KeyboardInterrupt:
+            print("\nsession interrupted by user", file=sys.stderr)
+            return 130
+        print(f"session ended: {end_reason}")
         return 0
 
     return 1
