@@ -1,0 +1,42 @@
+# GambleAgent session config — Phase 1 sample
+# Copy to session.local.yaml and fill in real values. session.local.yaml is gitignored.
+
+credentials:
+  # x-access-token value pulled from Stake.com browser DevTools.
+  stake_access_token: "REPLACE_ME"
+
+session:
+  # btc | eth | sol | usdt | ltc | doge | trx
+  currency: "btc"
+
+  # Halt the session when balance hits this USD value.
+  top_target_usd: 10000
+
+  # When balance crosses this, vault the excess down to this floor and keep playing
+  # toward top_target_usd.
+  secondary_target_usd: 3000
+
+  stop_loss:
+    enabled: false
+    # fixed_floor    — halt when balance (USD) drops below `value`
+    # pct_of_start   — halt when balance drops to `value`% of session-start balance
+    # session_loss_cap — halt when cumulative session loss (USD) exceeds `value`
+    mode: "fixed_floor"
+    value: 100
+
+  # Phase 1: only "steady" is valid. Phase 2 adds chill, degen, extreme_degen.
+  persona: "steady"
+
+  # Phase 1: only dice, keno, limbo are implemented.
+  games_enabled:
+    - dice
+    - keno
+    - limbo
+
+  vibes:
+    text: "feeling lucky tonight"
+    lucky_numbers: [7, 23, 11]
+    # If true, sha256(text + lucky_numbers) becomes the Stake client seed at session start.
+    bake_into_seed: true
+    # If true, lucky_numbers nudge game selection weights and per-game params.
+    influence_game_choice: true
