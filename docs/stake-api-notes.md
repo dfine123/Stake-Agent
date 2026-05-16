@@ -203,13 +203,61 @@ mutation DiceBet(
 
 ---
 
-## Keno and Limbo bet mutations
+## Keno bet mutation
 
-**Status: UNVERIFIED** — to be captured in Task 1.6.
+**Status: UNVERIFIED** — best-guess shape, mirrors confirmed diceRoll pattern.
+Lives in `engine/stake/games/keno.py` (`_KENO_BET_MUTATION`).
 
-Likely field names based on DiceBot naming conventions:
-- Keno: `kenoMultiplier(...)` or `kenoBet(...)` — **must verify**
-- Limbo: `limboBet(...)` or `crashBet(...)` — **must verify**
+```graphql
+mutation KenoBet(
+  $amount: Float!
+  $currency: CurrencyEnum!
+  $identifier: String!
+  $risk: CasinoGameKenoRiskEnum!
+  $selected: [Float!]!
+) {
+  kenoBet(...) {
+    id nonce currency amount payout
+    state { ... on CasinoGameKeno { drawnNumbers selectedNumbers risk } }
+    ...
+  }
+}
+```
+
+**TODO:** Capture from DevTools — place a Keno bet, copy the request/response.
+Things most likely to differ from the guess:
+- Mutation field name (`kenoBet` vs `kenoMultiplier` vs `kenoPlay`)
+- Risk enum name (`CasinoGameKenoRiskEnum`) and value casing (`classic` vs `CLASSIC`)
+- Whether `selected` is `[Float!]!` or `[Int!]!`
+- State inline type name (`CasinoGameKeno`) and its field names
+
+---
+
+## Limbo bet mutation
+
+**Status: UNVERIFIED** — best-guess shape, mirrors confirmed diceRoll pattern.
+Lives in `engine/stake/games/limbo.py` (`_LIMBO_BET_MUTATION`).
+
+```graphql
+mutation LimboBet(
+  $amount: Float!
+  $currency: CurrencyEnum!
+  $identifier: String!
+  $multiplierTarget: Float!
+) {
+  limboBet(...) {
+    id nonce currency amount payout
+    state { ... on CasinoGameLimbo { result multiplierTarget } }
+    ...
+  }
+}
+```
+
+**TODO:** Capture from DevTools — place a Limbo bet, copy the request/response.
+Things most likely to differ from the guess:
+- Mutation field name (`limboBet` vs `limboGame` vs `limbo`)
+- Variable name (`multiplierTarget` vs `target` vs `targetMultiplier`)
+- State inline type name (`CasinoGameLimbo`) and its field names
 
 ---
 

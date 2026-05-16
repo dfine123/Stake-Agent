@@ -8,7 +8,8 @@ from decimal import Decimal
 
 import pytest
 
-from engine.stake.games.dice import DiceAdapter, _parse_result
+from engine.stake.games.base import parse_bet_response
+from engine.stake.games.dice import DiceAdapter
 
 
 # ---------------------------------------------------------------------------
@@ -47,7 +48,7 @@ def _loss_response(amount: float = 0.0001) -> dict:
 # ---------------------------------------------------------------------------
 
 def test_parse_win():
-    result = _parse_result(_win_response(), Decimal("0.0001"))
+    result = parse_bet_response(_win_response(), "diceRoll", Decimal("0.0001"))
     assert result.won is True
     assert result.payout == Decimal("0.00019800")
     assert abs(result.multiplier - 1.98) < 0.001
@@ -55,7 +56,7 @@ def test_parse_win():
 
 
 def test_parse_loss():
-    result = _parse_result(_loss_response(), Decimal("0.0001"))
+    result = parse_bet_response(_loss_response(), "diceRoll", Decimal("0.0001"))
     assert result.won is False
     assert result.payout == Decimal("0")
     assert result.multiplier == 0.0
@@ -63,7 +64,7 @@ def test_parse_loss():
 
 def test_parse_preserves_raw():
     raw = _win_response()
-    result = _parse_result(raw, Decimal("0.0001"))
+    result = parse_bet_response(raw, "diceRoll", Decimal("0.0001"))
     assert result.raw is raw["diceRoll"]
 
 
