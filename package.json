@@ -1,0 +1,9 @@
+{
+  "name": "gambleagent-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "cd electron && npm run dev",
+    "build": "cd electron && npm run build",
+    "install:electron": "cd electron && npm install"
+  }
+}

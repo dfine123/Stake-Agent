@@ -1,0 +1,47 @@
+{
+  "name": "gambleagent",
+  "version": "0.1.0",
+  "description": "Autonomous Stake.com session runner",
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron . --dev",
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac dmg"
+  },
+  "dependencies": {
+    "keytar": "^7.9.0"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.gambleagent.app",
+    "productName": "GambleAgent",
+    "extends": null,
+    "files": [
+      "**/*",
+      "!node_modules/.cache",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "../engine",
+        "to": "engine",
+        "filter": ["**/*", "!tests/**", "!**/__pycache__/**", "!**/*.pyc"]
+      }
+    ],
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["universal"] }],
+      "icon": "assets/icons/icon.icns",
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "GambleAgent ${version}",
+      "window": { "width": 540, "height": 380 }
+    }
+  }
+}

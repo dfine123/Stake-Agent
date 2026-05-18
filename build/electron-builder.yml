@@ -1,0 +1,44 @@
+appId: com.gambleagent.app
+productName: GambleAgent
+copyright: "GambleAgent"
+
+directories:
+  app: electron
+  output: build/dist
+
+files:
+  - "**/*"
+  - "!node_modules/.cache/**"
+  - "!**/*.map"
+
+extraResources:
+  - from: engine
+    to: engine
+    filter:
+      - "**/*"
+      - "!tests/**"
+      - "!**/__pycache__/**"
+      - "!**/*.pyc"
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - universal
+  identity: null          # unsigned
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  icon: electron/assets/icons/icon.icns
+
+dmg:
+  title: "GambleAgent ${version}"
+  window:
+    width: 540
+    height: 380
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications

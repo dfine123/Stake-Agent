@@ -4,8 +4,8 @@ __pycache__/
 *$py.class
 *.egg-info/
 .eggs/
-build/
 dist/
+engine/build/
 .venv/
 venv/
 env/
@@ -31,7 +31,10 @@ session.local.yaml
 *.swp
 .DS_Store
 
-# Node / Electron (later phases)
+# Node / Electron
 node_modules/
+electron/node_modules/
 electron/dist/
+build/dist/
 out/
+*.dmg

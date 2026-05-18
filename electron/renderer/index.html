@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                 font-src 'self' https://fonts.gstatic.com;
+                 script-src 'self';
+                 img-src 'self' data:;
+                 connect-src 'none';">
+  <title>GambleAgent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Navigation sidebar ────────────────────────────────────────────── -->
+    <aside id="nav">
+      <div id="nav-logo">
+        <div class="logo-mark">🎲</div>
+        <div>
+          <div class="logo-text">GambleAgent</div>
+          <div class="logo-version" id="app-version">v0.1.0</div>
+        </div>
+      </div>
+
+      <nav>
+        <ul>
+          <li>
+            <a href="#" class="nav-link active" data-view="credentials">
+              <span class="nav-icon">🔑</span>
+              Credentials
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-view="session-config">
+              <span class="nav-icon">⚙️</span>
+              Session Config
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-view="dashboard">
+              <span class="nav-icon">📊</span>
+              Dashboard
+              <span class="nav-badge" id="session-status-badge">idle</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-view="debug-console">
+              <span class="nav-icon">🔬</span>
+              Debug Console
+              <span class="nav-badge" id="debug-count-badge">0</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" class="nav-link" data-view="settings">
+              <span class="nav-icon">🛠</span>
+              Settings
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <div id="nav-status">
+        <div class="status-pill">
+          <div class="status-dot" id="engine-status-dot"></div>
+          <span id="engine-status-text">engine idle</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Content area ───────────────────────────────────────────────────── -->
+    <main id="main">
+
+      <!-- Credentials view -->
+      <div class="view active" id="view-credentials">
+        <div data-component="credentials"></div>
+      </div>
+
+      <!-- Session Config view -->
+      <div class="view" id="view-session-config">
+        <div data-component="session-config"></div>
+      </div>
+
+      <!-- Dashboard view -->
+      <div class="view" id="view-dashboard">
+        <div data-component="dashboard"></div>
+      </div>
+
+      <!-- Debug Console view -->
+      <div class="view" id="view-debug-console">
+        <div data-component="debug-console"></div>
+      </div>
+
+      <!-- Settings view -->
+      <div class="view" id="view-settings">
+        <div data-component="settings"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Components loaded first so app.js can call them -->
+  <script src="components/credentials.js"></script>
+  <script src="components/session-config.js"></script>
+  <script src="components/dashboard.js"></script>
+  <script src="components/debug-console.js"></script>
+  <script src="components/settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -236,13 +236,18 @@ gambleagent/
 
 We build in phases. **Do not work outside the current phase without asking.**
 
-- **Phase 1 — Engine prototype (CLI).** Stake client, 3 games (Dice/Keno/Limbo), Steady persona only, vibe seed working, runs from terminal with a config file, places real bets, hits a top target, halts.
-- **Phase 2 — Full engine.** All 12 games, all 4 personas, full Martingale, vault automation, stop-loss modes, co-pilot logic, event bus complete, Claude commentary + recap.
-- **Phase 3 — Electron UI.** Credentials in Keychain, session config screen, dashboard with bet feed, co-pilot modal, avatar placeholder window.
-- **Phase 4 — Packaging.** Unsigned DMG via electron-builder.
-- **Phase 5 — Avatar.** Separate sprint, post-v1.
+- **Phase 1 — Engine prototype (CLI).** ✅ COMPLETE. Stake client, 3 games (Dice/Keno/Limbo), Steady persona only, vibe seed working, event bus, SQLite logger, preflight check, dry-run mode. NOTE: Stake API round-trip was NOT verified in sandbox (egress to api.stake.com blocked). First live verification happens through the finished Electron app on the user's Mac.
+- **Phase 2 — Electron UI + Packaging (current).** Full desktop app wrapping Phase 1 engine. Credentials screen with Keychain, session config form, live dashboard, debug console (first-class feature — surfaces all raw GraphQL traffic for post-mortem), Python sidecar IPC, unsigned DMG via electron-builder.
+- **Phase 3 — Full engine.** All 12 games, all 4 personas, full Martingale, vault automation, stop-loss modes, Claude commentary + recap, co-pilot logic, event bus complete.
+- **Phase 4 — Avatar.** Separate sprint, post-Phase 3.
 
-Current phase: **Phase 1** (update this line as we progress).
+Current phase: **Phase 2** (update this line as we progress).
+
+### Phase 2 engine scope (what's in vs. out)
+Phase 2 ships the Phase 1 engine (3 games, Steady persona) through the Electron UI. The UI must show the full future surface area (all 4 personas, all 12 games) but disabled with "Coming in Phase 3" labels. This ships the UI shell now and lets the engine catch up later.
+
+### Debug console — non-negotiable requirement
+The Phase 1 engine was never verified against the live Stake API. Every Stake API error must bubble to the debug console with full request/response payloads. A "friendly error message" without the raw payload is not acceptable — it makes the first real-money debugging session impossible.
 
 ---
 
