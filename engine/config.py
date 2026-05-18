@@ -6,6 +6,7 @@ any Stake API call is made.
 
 from __future__ import annotations
 
+import os
 from decimal import Decimal
 from pathlib import Path
 from typing import Literal
@@ -86,9 +87,24 @@ class SessionConfig(BaseModel):
     session: Session
 
 
-def load_config(path: str | Path) -> SessionConfig:
-    """Parse a YAML file into a validated SessionConfig."""
+def load_config(path: str | Path, token_override: str | None = None) -> SessionConfig:
+    """Parse a YAML file into a validated SessionConfig.
+
+    Token resolution order (first non-empty wins):
+      1. token_override argument   — supplied by main.py after an interactive prompt
+      2. STAKE_ACCESS_TOKEN env var — for CI / headless runs
+      3. credentials.stake_access_token in the YAML
+    """
     raw = yaml.safe_load(Path(path).read_text())
     if not isinstance(raw, dict):
         raise ValueError(f"config root must be a mapping, got {type(raw).__name__}")
+
+    token = (
+        token_override
+        or os.environ.get("STAKE_ACCESS_TOKEN", "").strip()
+        or ""
+    )
+    if token:
+        raw.setdefault("credentials", {})["stake_access_token"] = token
+
     return SessionConfig.model_validate(raw)

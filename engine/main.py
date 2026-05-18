@@ -11,6 +11,7 @@ Subcommands:
 
 import argparse
 import asyncio
+import getpass
 import sys
 
 from pydantic import ValidationError
@@ -22,6 +23,36 @@ from engine.stake.client import StakeAPIError, StakeAuthError
 from engine.stake.preflight import run_preflight
 
 _console = Console()
+
+
+def _load_config_with_prompt(path: str) -> object:
+    """Load config; fall back to interactive token prompt if YAML has a placeholder.
+
+    In Phase 3 the Electron UI supplies the token directly — this prompt is
+    the CLI equivalent of that onboarding step.
+    """
+    try:
+        return load_config(path)
+    except (ValidationError, ValueError) as first_err:
+        if "stake_access_token" not in str(first_err):
+            raise
+
+    # Token is missing / placeholder — ask the user exactly once.
+    _console.print()
+    _console.print("[bold]Stake access token not set.[/]  "
+                   "Paste the value of the [cyan]x-access-token[/] header "
+                   "from your browser's DevTools (Network → any graphql request).")
+    try:
+        token = getpass.getpass("  Access token: ").strip()
+    except (KeyboardInterrupt, EOFError):
+        _console.print("\n[dim]aborted[/]")
+        raise SystemExit(130)
+
+    if not token:
+        _console.print("[red]No token entered — cannot continue.[/]")
+        raise SystemExit(2)
+
+    return load_config(path, token_override=token)
 
 
 def main() -> int:
@@ -58,13 +89,15 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        cfg = load_config(args.config)
+        cfg = _load_config_with_prompt(args.config)
     except FileNotFoundError as e:
         _console.print(f"[red]config not found:[/] {e}", highlight=False)
         return 2
     except (ValidationError, ValueError) as e:
         _console.print(f"[red]config error:[/] {e}", highlight=False)
         return 2
+    except SystemExit as e:
+        return int(e.code)
 
     # ------------------------------------------------------------------
     # validate
