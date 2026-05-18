@@ -62,6 +62,9 @@ def main() -> int:
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
+    # ---- serve (IPC mode — spawned by Electron) ----
+    sub.add_parser("serve", help="Run in IPC mode: read JSON commands from stdin, write events to stdout")
+
     # ---- validate ----
     val_p = sub.add_parser("validate", help="Validate a config file and exit (no network)")
     val_p.add_argument("--config", required=True, metavar="FILE")
@@ -87,6 +90,12 @@ def main() -> int:
     )
 
     args = parser.parse_args()
+
+    # ── serve — IPC mode, no config needed ───────────────────────────────────
+    if args.command == "serve":
+        from engine.ipc.server import serve
+        asyncio.run(serve())
+        return 0
 
     try:
         cfg = _load_config_with_prompt(args.config)

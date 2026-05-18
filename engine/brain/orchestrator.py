@@ -24,7 +24,7 @@ from __future__ import annotations
 import asyncio
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from engine.brain.bet_sizer import compute_bet_size
 from engine.brain.game_selector import pick_game
@@ -81,10 +81,18 @@ class Orchestrator:
         config: SessionConfig,
         db_path: Path | str | None = None,
         dry_run: bool = False,
+        bus: EventBus | None = None,
+        stop_event: asyncio.Event | None = None,
+        pause_event: asyncio.Event | None = None,
+        debug_hook: Callable | None = None,
     ) -> None:
         self._config = config
         self._db_path = db_path
         self._dry_run = dry_run
+        self._external_bus = bus          # when set: IPC mode, no terminal UI
+        self._stop_event = stop_event
+        self._pause_event = pause_event
+        self._debug_hook = debug_hook
 
         # State (lives only in the orchestrator — per house rule #8)
         self._recovery = RecoveryState(step=0)
@@ -96,15 +104,23 @@ class Orchestrator:
         cfg = self._config.session
         persona = _build_persona(cfg.persona)
 
-        bus = EventBus()
-        feed = BetFeedUI()
-        feed.subscribe(bus)
+        # IPC mode: bus is pre-built and subscribers wired externally.
+        # CLI mode: create bus here, attach terminal UI.
+        if self._external_bus is not None:
+            bus = self._external_bus
+        else:
+            bus = EventBus()
+            feed = BetFeedUI()
+            feed.subscribe(bus)
 
         logger = SqliteLogger(self._db_path)
         await logger.start()
         logger.subscribe(bus)
 
-        async with StakeClient(self._config.credentials.stake_access_token) as client:
+        async with StakeClient(
+            self._config.credentials.stake_access_token,
+            debug_hook=self._debug_hook,
+        ) as client:
             adapters_all = _build_game_adapters(client)
             adapters = {g: adapters_all[g] for g in cfg.games_enabled}
             if self._dry_run:
@@ -167,6 +183,14 @@ class Orchestrator:
         enabled = list(adapters.keys())
 
         while True:
+            # Halt if an external stop signal has been set (IPC stop/panic).
+            if self._stop_event and self._stop_event.is_set():
+                return "user_halt", await client.get_balance(currency)
+
+            # Block here if paused — resumes when pause_event is set again.
+            if self._pause_event:
+                await self._pause_event.wait()
+
             balance = await client.get_balance(currency)
             balance_usd = balance * rate
 

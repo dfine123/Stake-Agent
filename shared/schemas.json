@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GambleAgent IPC Contract",
+  "description": "Newline-delimited JSON protocol between Electron (Node.js) and the Python engine sidecar over stdio.",
+
+  "framing": {
+    "description": "Each message is a single JSON object followed by a newline (\\n). Messages are never split across lines.",
+    "encoding": "UTF-8",
+    "direction": {
+      "electron_to_python": "stdin of Python process",
+      "python_to_electron": "stdout of Python process"
+    }
+  },
+
+  "messageTypes": {
+    "command": {
+      "description": "Electron → Python. Request to perform an action.",
+      "schema": {
+        "type": "object",
+        "required": ["id", "type", "name", "payload", "ts"],
+        "properties": {
+          "id":      { "type": "string", "format": "uuid" },
+          "type":    { "type": "string", "const": "command" },
+          "name":    { "type": "string" },
+          "payload": { "type": "object" },
+          "ts":      { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "response": {
+      "description": "Python → Electron. Reply to a command, correlated by id.",
+      "schema": {
+        "type": "object",
+        "required": ["id", "type", "name", "ok", "payload", "ts"],
+        "properties": {
+          "id":      { "type": "string", "format": "uuid", "description": "Matches the command id." },
+          "type":    { "type": "string", "const": "response" },
+          "name":    { "type": "string", "description": "Mirrors the command name." },
+          "ok":      { "type": "boolean" },
+          "payload": { "type": "object" },
+          "ts":      { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "event": {
+      "description": "Python → Electron. Unsolicited push notification (no command id to correlate).",
+      "schema": {
+        "type": "object",
+        "required": ["id", "type", "name", "payload", "ts"],
+        "properties": {
+          "id":      { "type": "string" },
+          "type":    { "type": "string", "const": "event" },
+          "name":    { "type": "string" },
+          "payload": { "type": "object" },
+          "ts":      { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  },
+
+  "commands": {
+    "get_status": {
+      "description": "Query engine health and current session state.",
+      "payload": {},
+      "response_payload": {
+        "alive": { "type": "boolean" },
+        "session_running": { "type": "boolean" },
+        "session_paused": { "type": "boolean" },
+        "version": { "type": "string" }
+      }
+    },
+    "preflight": {
+      "description": "Authenticate with Stake and return current balance. Fires debug_request / debug_response events for each GraphQL call.",
+      "payload": {
+        "stake_access_token": { "type": "string" },
+        "currency": { "type": "string", "default": "usdt" }
+      },
+      "response_payload": {
+        "balance": { "type": "string", "description": "Decimal string" },
+        "rate":    { "type": "string", "description": "Decimal string, USD rate" },
+        "balance_usd": { "type": "string", "description": "Decimal string" }
+      }
+    },
+    "get_balance": {
+      "description": "Fetch current balance for a currency.",
+      "payload": {
+        "stake_access_token": { "type": "string" },
+        "currency": { "type": "string" }
+      },
+      "response_payload": {
+        "balance": { "type": "string" }
+      }
+    },
+    "start_session": {
+      "description": "Start an autonomous betting session with the given config.",
+      "payload": {
+        "stake_access_token": { "type": "string" },
+        "currency": { "type": "string" },
+        "persona": { "type": "string", "enum": ["chill", "steady", "degen", "extreme_degen"] },
+        "games_enabled": { "type": "array", "items": { "type": "string" } },
+        "top_target_usd": { "type": "number" },
+        "secondary_target_usd": { "type": "number" },
+        "stop_loss": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "mode": { "type": "string", "enum": ["fixed", "percent"] },
+            "value": { "type": "number" }
+          }
+        },
+        "vibes": {
+          "type": "object",
+          "properties": {
+            "text": { "type": "string" },
+            "lucky_numbers": { "type": "array", "items": { "type": "integer" } },
+            "bake_into_seed": { "type": "boolean" },
+            "influence_game_choice": { "type": "boolean" }
+          }
+        },
+        "dry_run": { "type": "boolean", "default": false }
+      },
+      "response_payload": {
+        "started": { "type": "boolean" }
+      }
+    },
+    "pause_session": {
+      "description": "Pause betting after the current bet completes.",
+      "payload": {},
+      "response_payload": {
+        "paused": { "type": "boolean" }
+      }
+    },
+    "resume_session": {
+      "description": "Resume a paused session.",
+      "payload": {},
+      "response_payload": {
+        "resumed": { "type": "boolean" }
+      }
+    },
+    "stop_session": {
+      "description": "Gracefully stop the session (waits for current bet to settle).",
+      "payload": {},
+      "response_payload": {
+        "stopping": { "type": "boolean" }
+      }
+    },
+    "panic": {
+      "description": "Cancel the session task immediately without waiting for bet settlement.",
+      "payload": {},
+      "response_payload": {
+        "cancelled": { "type": "boolean" }
+      }
+    }
+  },
+
+  "events": {
+    "session_start":              { "payload": { "session_id": "string", "config": "object" } },
+    "session_end":                { "payload": { "session_id": "string", "end_reason": "string", "summary": "object" } },
+    "bet_placed":                 { "payload": { "game": "string", "amount": "string", "currency": "string", "params": "object" } },
+    "bet_settled":                { "payload": { "game": "string", "amount": "string", "currency": "string", "result": "object" } },
+    "won_small":                  { "payload": { "multiplier": "number", "payout": "string" } },
+    "won_medium":                 { "payload": { "multiplier": "number", "payout": "string" } },
+    "won_big":                    { "payload": { "multiplier": "number", "payout": "string" } },
+    "lost":                       { "payload": { "amount": "string" } },
+    "heater_started":             { "payload": { "streak": "integer" } },
+    "heater_ended":               { "payload": { "streak": "integer" } },
+    "cold_streak_started":        { "payload": { "streak": "integer" } },
+    "cold_streak_ended":          { "payload": { "streak": "integer" } },
+    "recovery_mode_entered":      { "payload": { "step": "integer" } },
+    "recovery_mode_exited":       { "payload": {} },
+    "vault_executed":             { "payload": { "direction": "string", "amount": "string", "currency": "string" } },
+    "target_progress_25":         { "payload": { "balance_usd": "string", "target_usd": "string" } },
+    "target_progress_50":         { "payload": { "balance_usd": "string", "target_usd": "string" } },
+    "target_progress_75":         { "payload": { "balance_usd": "string", "target_usd": "string" } },
+    "top_target_hit":             { "payload": { "balance_usd": "string" } },
+    "secondary_target_hit":       { "payload": { "balance_usd": "string" } },
+    "stop_loss_hit":              { "payload": { "balance_usd": "string", "threshold_usd": "string" } },
+    "tilt_bet_triggered":         { "payload": { "amount": "string", "currency": "string" } },
+    "big_win_alert":              { "payload": { "multiplier": "number", "payout": "string" } },
+    "engine_crash":               { "payload": { "code": "integer|null", "signal": "string|null" } },
+    "engine_stderr":              { "payload": { "text": "string" } },
+    "debug_request":              { "payload": { "endpoint": "string", "query": "string", "variables": "object" } },
+    "debug_response":             { "payload": { "status": "integer", "latency_ms": "number", "body": "object" } }
+  }
+}

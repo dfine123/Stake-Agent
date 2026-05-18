@@ -2,8 +2,6 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-// Safe surface exposed to renderer — no direct Node/Electron access.
-// Expanded with engine IPC methods in Task 2.2.
 contextBridge.exposeInMainWorld('gambleAgent', {
 
   // ── App info ──────────────────────────────────────────────────────────────
@@ -13,8 +11,31 @@ contextBridge.exposeInMainWorld('gambleAgent', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openDataDir:  ()    => ipcRenderer.invoke('open-data-dir'),
 
-  // ── Engine IPC (stubs — wired in Task 2.2) ───────────────────────────────
-  sendCommand: (_name, _payload) => Promise.resolve({ ok: false, error: 'IPC not yet wired' }),
-  onEngineEvent: (_callback) => {},
-  offEngineEvent: (_callback) => {},
+  // ── Engine IPC ────────────────────────────────────────────────────────────
+
+  /**
+   * Send a command to the Python engine and await the response.
+   * Returns { ok: bool, payload: dict } — never throws.
+   */
+  engineSend: (name, payload, timeoutMs) =>
+    ipcRenderer.invoke('engine-send', name, payload, timeoutMs),
+
+  /** Is the engine process alive? */
+  engineAlive: () => ipcRenderer.invoke('engine-alive'),
+
+  /** Restart the engine after a crash. */
+  engineRestart: () => ipcRenderer.invoke('engine-restart'),
+
+  /**
+   * Subscribe to events emitted by the engine.
+   * Returns an unsubscribe function.
+   *
+   * handler receives the full message object:
+   *   { id, type: "event", name, payload, ts }
+   */
+  onEngineEvent: (handler) => {
+    const wrapper = (_ipc, msg) => handler(msg);
+    ipcRenderer.on('engine-event', wrapper);
+    return () => ipcRenderer.removeListener('engine-event', wrapper);
+  },
 });

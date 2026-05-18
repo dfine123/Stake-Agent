@@ -120,7 +120,7 @@ def _config(
 
 def _patch_runtime(monkeypatch, fake_client: FakeStakeClient, dice: ScriptedDiceAdapter):
     """Patch the orchestrator's runtime deps to use our fakes."""
-    monkeypatch.setattr(orch_mod, "StakeClient", lambda token: fake_client)
+    monkeypatch.setattr(orch_mod, "StakeClient", lambda token, **_kw: fake_client)
     monkeypatch.setattr(
         orch_mod, "_build_game_adapters",
         lambda client: {"dice": dice, "keno": dice, "limbo": dice},

@@ -152,7 +152,7 @@ async def test_preflight_dry_run_wired_through_orchestrator(monkeypatch, tmp_pat
     # Balance = $200 → already at top ($200), so loop exits immediately
     client_instance = FakeClientCtx()
     client_instance.balance = Decimal("0.004")  # 0.004 * 50000 = $200 = top
-    monkeypatch.setattr(orch_mod, "StakeClient", lambda tok: client_instance)
+    monkeypatch.setattr(orch_mod, "StakeClient", lambda tok, **_kw: client_instance)
 
     cfg = _cfg(top="200", secondary="150")
     from engine.brain.orchestrator import Orchestrator

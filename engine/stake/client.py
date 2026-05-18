@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 from decimal import Decimal
+from typing import Callable
 
 import httpx
 
@@ -110,7 +112,8 @@ class StakeClient:
             balance = await client.get_balance("btc")
     """
 
-    def __init__(self, access_token: str) -> None:
+    def __init__(self, access_token: str, debug_hook: Callable | None = None) -> None:
+        self._debug_hook = debug_hook
         self._http = httpx.AsyncClient(
             headers={
                 "content-type": "application/json",
@@ -133,17 +136,46 @@ class StakeClient:
     # ------------------------------------------------------------------
 
     async def _gql(self, query: str, variables: dict | None = None) -> dict:
-        """Execute a GraphQL request. Applies ±20% jitter before every call."""
+        """Execute a GraphQL request. Applies ±20% jitter before every call.
+
+        Always fires debug_hook (if set) with the full request and response so
+        the Debug Console can surface raw traffic even on errors.
+        """
         await asyncio.sleep(_jitter(0.15))
 
-        payload: dict = {"query": query}
+        gql_payload: dict = {"query": query}
         if variables:
-            payload["variables"] = variables
+            gql_payload["variables"] = variables
+
+        if self._debug_hook:
+            self._debug_hook("request", {
+                "endpoint": GRAPHQL_ENDPOINT,
+                "query": query,
+                "variables": variables or {},
+            })
+
+        t0 = time.monotonic()
+        try:
+            resp = await self._http.post(GRAPHQL_ENDPOINT, json=gql_payload)
+        except httpx.RequestError as exc:
+            latency_ms = round((time.monotonic() - t0) * 1000, 1)
+            if self._debug_hook:
+                self._debug_hook("response", {"error": str(exc), "latency_ms": latency_ms})
+            raise StakeAPIError(f"network error: {exc}") from exc
+
+        latency_ms = round((time.monotonic() - t0) * 1000, 1)
 
         try:
-            resp = await self._http.post(GRAPHQL_ENDPOINT, json=payload)
-        except httpx.RequestError as exc:
-            raise StakeAPIError(f"network error: {exc}") from exc
+            body = resp.json()
+        except Exception:
+            body = {"_unparseable": resp.text[:2000]}
+
+        if self._debug_hook:
+            self._debug_hook("response", {
+                "status": resp.status_code,
+                "latency_ms": latency_ms,
+                "body": body,
+            })
 
         if resp.status_code == 401:
             raise StakeAuthError(
@@ -156,10 +188,8 @@ class StakeClient:
         if resp.status_code != 200:
             raise StakeAPIError(f"HTTP {resp.status_code}: {resp.text[:400]}")
 
-        try:
-            body = resp.json()
-        except Exception as exc:
-            raise StakeAPIError(f"non-JSON response: {resp.text[:400]}") from exc
+        if "_unparseable" in body:
+            raise StakeAPIError(f"non-JSON response: {body['_unparseable'][:400]}")
 
         if "errors" in body:
             errors = body["errors"]

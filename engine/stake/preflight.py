@@ -1,21 +1,42 @@
 """Pre-flight check — verifies Stake auth and prints a session summary.
 
-Fetches balance + rate so the user can confirm the session config looks right
-before real money changes hands.
+run_preflight() fetches balance + rate and prints a Rich summary.
+get_preflight_data() is the pure-data version used by the IPC server.
 """
 
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Callable
 
 from rich.console import Console
 from rich.table import Table
 
 from engine.config import SessionConfig
-from engine.stake.client import StakeAuthError, StakeClient
+from engine.stake.client import StakeAPIError, StakeAuthError, StakeClient
 
 
-async def run_preflight(cfg: SessionConfig, console: Console | None = None) -> dict:
+async def get_preflight_data(
+    cfg: SessionConfig,
+    debug_hook: Callable | None = None,
+) -> dict:
+    """Fetch balance + rate from Stake. Returns plain dict, no printing.
+
+    Returns:
+        {"balance": Decimal, "rate": Decimal, "balance_usd": Decimal}
+    """
+    currency = cfg.session.currency
+    async with StakeClient(cfg.credentials.stake_access_token, debug_hook=debug_hook) as client:
+        balance = await client.get_balance(currency)
+        rate = await client.get_currency_rate(currency)
+    return {"balance": balance, "rate": rate, "balance_usd": balance * rate}
+
+
+async def run_preflight(
+    cfg: SessionConfig,
+    console: Console | None = None,
+    debug_hook: Callable | None = None,
+) -> dict:
     """Authenticate with Stake, print a session summary, return balance info.
 
     Returns:
@@ -31,11 +52,11 @@ async def run_preflight(cfg: SessionConfig, console: Console | None = None) -> d
 
     con.rule("[bold cyan]GambleAgent — Pre-flight[/]")
 
-    async with StakeClient(cfg.credentials.stake_access_token) as client:
-        balance = await client.get_balance(currency)
-        rate = await client.get_currency_rate(currency)
+    result = await get_preflight_data(cfg, debug_hook=debug_hook)
+    balance = result["balance"]
+    rate = result["rate"]
+    balance_usd = result["balance_usd"]
 
-    balance_usd = balance * rate
     needed_usd = max(Decimal("0"), session.top_target_usd - balance_usd)
 
     con.print(f"[bold green]✓[/] Stake auth OK")
@@ -80,4 +101,4 @@ async def run_preflight(cfg: SessionConfig, console: Console | None = None) -> d
             "A vault deposit will fire on the first loop iteration."
         )
 
-    return {"balance": balance, "rate": rate, "balance_usd": balance_usd}
+    return result
