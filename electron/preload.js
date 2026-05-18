@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld('gambleAgent', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openDataDir:  ()    => ipcRenderer.invoke('open-data-dir'),
 
+  // ── Keychain ──────────────────────────────────────────────────────────────
+  keychain: {
+    get:    (account)           => ipcRenderer.invoke('keychain-get', account),
+    set:    (account, password) => ipcRenderer.invoke('keychain-set', account, password),
+    delete: (account)           => ipcRenderer.invoke('keychain-delete', account),
+  },
+
   // ── Engine IPC ────────────────────────────────────────────────────────────
 
   /**

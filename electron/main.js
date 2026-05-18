@@ -2,7 +2,10 @@
 
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path   = require('path');
+const keytar = require('keytar');
 const { EngineClient } = require('./ipc/client');
+
+const KEYCHAIN_SERVICE = 'com.gambleagent.app';
 
 const IS_DEV = process.argv.includes('--dev');
 
@@ -136,3 +139,13 @@ ipcMain.handle('open-external', (_event, url) => {
 });
 
 ipcMain.handle('open-data-dir', () => shell.openPath(app.getPath('userData')));
+
+// ── Keychain (keytar) ─────────────────────────────────────────────────────────
+ipcMain.handle('keychain-get',    (_e, account) =>
+  keytar.getPassword(KEYCHAIN_SERVICE, account));
+
+ipcMain.handle('keychain-set',    (_e, account, password) =>
+  keytar.setPassword(KEYCHAIN_SERVICE, account, password));
+
+ipcMain.handle('keychain-delete', (_e, account) =>
+  keytar.deletePassword(KEYCHAIN_SERVICE, account));

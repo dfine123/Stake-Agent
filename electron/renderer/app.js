@@ -92,5 +92,13 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Initial route ─────────────────────────────────────────────────────────────
-// Start on credentials. Once creds confirmed, will auto-nav to session-config.
-navigateTo('credentials');
+// If Stake token already saved in Keychain, skip straight to session-config.
+// Otherwise land on credentials (first-launch onboarding).
+(async () => {
+  try {
+    const saved = await window.gambleAgent.keychain.get('stake_access_token');
+    navigateTo(saved ? 'session-config' : 'credentials');
+  } catch {
+    navigateTo('credentials');
+  }
+})();
