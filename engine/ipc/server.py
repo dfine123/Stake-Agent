@@ -29,6 +29,7 @@ from engine.events import bus as event_names
 from engine.events.bus import EventBus
 from engine.stake.client import StakeAPIError, StakeAuthError, StakeClient
 from engine.stake.preflight import get_preflight_data
+from pydantic import ValidationError
 
 # All event bus event names the orchestrator can emit — forwarded over IPC.
 _BUS_EVENTS = [
@@ -49,6 +50,24 @@ _BUS_EVENTS = [
 
 def _ts() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _format_validation_error(exc: ValidationError) -> dict:
+    """Convert a pydantic ValidationError into a UI-friendly structured payload.
+
+    Returns: {"error": "<summary>", "detail": [{"loc": "path", "msg": str, "type": str}, ...]}
+    """
+    errors = []
+    for e in exc.errors():
+        loc = ".".join(str(p) for p in e.get("loc", []))
+        errors.append({
+            "loc":  loc,
+            "msg":  e.get("msg", ""),
+            "type": e.get("type", ""),
+        })
+    summary = f"{len(errors)} validation error{'s' if len(errors) != 1 else ''}: " + \
+              "; ".join(f"{e['loc']}: {e['msg']}" for e in errors[:3])
+    return {"error": summary, "detail": errors}
 
 
 class IPCServer:
@@ -123,14 +142,16 @@ class IPCServer:
 
         try:
             handlers = {
-                "get_status":     self._cmd_get_status,
-                "preflight":      self._cmd_preflight,
-                "get_balance":    self._cmd_get_balance,
-                "start_session":  self._cmd_start_session,
-                "pause_session":  self._cmd_pause_session,
-                "resume_session": self._cmd_resume_session,
-                "stop_session":   self._cmd_stop_session,
-                "panic":          self._cmd_panic,
+                "get_status":        self._cmd_get_status,
+                "preflight":         self._cmd_preflight,
+                "get_balance":       self._cmd_get_balance,
+                "validate_config":   self._cmd_validate_config,
+                "get_config_schema": self._cmd_get_config_schema,
+                "start_session":     self._cmd_start_session,
+                "pause_session":     self._cmd_pause_session,
+                "resume_session":    self._cmd_resume_session,
+                "stop_session":      self._cmd_stop_session,
+                "panic":             self._cmd_panic,
             }
             handler = handlers.get(name)
             if handler is None:
@@ -206,6 +227,29 @@ class IPCServer:
             "currency":    currency,
         })
 
+    async def _cmd_validate_config(self, cmd_id: str, payload: dict) -> None:
+        """Validate a SessionConfig payload without starting anything.
+
+        Returns ok=True with {valid: true} if the payload would be accepted by
+        start_session. Returns ok=False with structured detail otherwise.
+        """
+        try:
+            SessionConfig.model_validate(payload)
+        except ValidationError as exc:
+            self.respond(cmd_id, "validate_config",
+                         _format_validation_error(exc), ok=False)
+            return
+        except Exception as exc:  # noqa: BLE001 — surface any other parse error
+            self.respond(cmd_id, "validate_config",
+                         {"error": str(exc), "detail": []}, ok=False)
+            return
+        self.respond(cmd_id, "validate_config", {"valid": True})
+
+    async def _cmd_get_config_schema(self, cmd_id: str, _payload: dict) -> None:
+        """Return the SessionConfig JSON schema (pydantic v2 model_json_schema)."""
+        self.respond(cmd_id, "get_config_schema",
+                     {"schema": SessionConfig.model_json_schema()})
+
     async def _cmd_start_session(self, cmd_id: str, payload: dict) -> None:
         if self._session_task and not self._session_task.done():
             self.respond(cmd_id, "start_session",
@@ -214,8 +258,13 @@ class IPCServer:
 
         try:
             cfg = SessionConfig.model_validate(payload)
-        except Exception as exc:
-            self.respond(cmd_id, "start_session", {"error": str(exc)}, ok=False)
+        except ValidationError as exc:
+            self.respond(cmd_id, "start_session",
+                         _format_validation_error(exc), ok=False)
+            return
+        except Exception as exc:  # noqa: BLE001
+            self.respond(cmd_id, "start_session",
+                         {"error": str(exc), "detail": []}, ok=False)
             return
 
         self._stop_event  = asyncio.Event()

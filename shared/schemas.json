@@ -91,6 +91,33 @@
         "balance": { "type": "string" }
       }
     },
+    "validate_config": {
+      "description": "Validate a SessionConfig payload (same shape as start_session) without starting. Returns ok=true if valid; ok=false with structured detail otherwise.",
+      "payload": "Same as start_session — full nested {credentials, session, _dry_run?} structure",
+      "response_payload": {
+        "valid": { "type": "boolean", "description": "Present and true on success." },
+        "error": { "type": "string", "description": "Summary message on failure." },
+        "detail": {
+          "type": "array",
+          "description": "Field-level errors on failure.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "loc":  { "type": "string", "description": "Dotted field path, e.g. 'session.top_target_usd'" },
+              "msg":  { "type": "string" },
+              "type": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "get_config_schema": {
+      "description": "Return the pydantic JSON schema for SessionConfig. Useful for client-side form generation.",
+      "payload": {},
+      "response_payload": {
+        "schema": { "type": "object", "description": "pydantic v2 model_json_schema() output" }
+      }
+    },
     "start_session": {
       "description": "Start an autonomous betting session with the given config.",
       "payload": {

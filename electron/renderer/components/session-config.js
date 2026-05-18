@@ -37,9 +37,41 @@ window.SessionConfigComponent = (() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch { /* quota */ }
   }
 
-  // ── Expose config for other components (dashboard) ──────────────────────────
-  // window.SessionConfig.get() returns the current saved config.
-  window.SessionConfig = { get: _load };
+  // ── Lucky-numbers parser (comma-separated string → int[]) ─────────────────
+  function _parseLucky(raw) {
+    if (!raw || !raw.trim()) return [];
+    return raw.split(',')
+      .map(s => parseInt(s.trim(), 10))
+      .filter(n => Number.isFinite(n) && n >= 0);
+  }
+
+  // ── Transform UI state → engine SessionConfig payload ─────────────────────
+  function _toEnginePayload(state, stakeToken) {
+    return {
+      credentials: { stake_access_token: stakeToken },
+      session: {
+        currency:             state.currency,
+        top_target_usd:       state.top_target_usd,
+        secondary_target_usd: state.secondary_target_usd,
+        persona:              state.persona,
+        games_enabled:        state.games_enabled,
+        stop_loss:            state.stop_loss,
+        vibes: {
+          text:                  state.vibes.text,
+          lucky_numbers:         _parseLucky(state.vibes.lucky_numbers),
+          bake_into_seed:        state.vibes.bake_into_seed,
+          influence_game_choice: state.vibes.influence_game_choice,
+        },
+      },
+      _dry_run: state.dry_run,
+    };
+  }
+
+  // ── Expose config + payload builder for dashboard ──────────────────────────
+  window.SessionConfig = {
+    get:             _load,
+    toEnginePayload: _toEnginePayload,
+  };
 
   // ── Game catalogue ──────────────────────────────────────────────────────────
   const GAMES = [
@@ -448,14 +480,61 @@ window.SessionConfigComponent = (() => {
     });
 
     // ── Launch ─────────────────────────────────────────────────────────────
-    container.querySelector('#sc-launch-btn').addEventListener('click', () => {
-      const err = _validate(state);
-      if (err) { _showError(err); return; }
+    const launchBtn = container.querySelector('#sc-launch-btn');
+    launchBtn.addEventListener('click', async () => {
+      // 1. Client-side checks (fast, no IPC needed for obvious issues)
+      const localErr = _validate(state);
+      if (localErr) { _showError(localErr); return; }
+
+      // 2. Engine-side validation (pydantic — single source of truth)
       _showError(null);
       _persist();
+      launchBtn.disabled = true;
+      launchBtn.textContent = '⋯ Validating…';
+
+      try {
+        const token = await window.gambleAgent.keychain.get('stake_access_token');
+        if (!token) {
+          _showError('Stake access token not found in Keychain — set it in Credentials first.');
+          launchBtn.disabled = false;
+          launchBtn.textContent = 'Launch Session →';
+          return;
+        }
+        const payload = _toEnginePayload(state, token);
+        const res = await window.gambleAgent.engineSend('validate_config', payload, 5_000);
+        if (!res.ok) {
+          _showStructuredError(res);
+          launchBtn.disabled = false;
+          launchBtn.textContent = 'Launch Session →';
+          return;
+        }
+      } catch (err) {
+        _showError(`Engine validation failed: ${err.message ?? err}`);
+        launchBtn.disabled = false;
+        launchBtn.textContent = 'Launch Session →';
+        return;
+      }
+
+      // 3. All green — navigate
+      launchBtn.disabled = false;
+      launchBtn.textContent = 'Launch Session →';
       sessionStorage.setItem('gambleagent:launch', '1');
       window.App?.navigateTo('dashboard');
     });
+
+    // Render pydantic field-level errors in the banner
+    function _showStructuredError(res) {
+      const detail = res.payload?.detail ?? [];
+      if (detail.length === 0) {
+        _showError(res.error ?? 'Engine rejected the config.');
+        return;
+      }
+      const lines = detail.map(e => `• ${e.loc}: ${e.msg}`).join('\n');
+      const banner = container.querySelector('#sc-error-banner');
+      const text   = container.querySelector('#sc-error-text');
+      banner.style.display = '';
+      text.innerHTML = `<strong>Config rejected by engine:</strong><pre style="margin:6px 0 0;white-space:pre-wrap;font-family:var(--font-mono);font-size:11px">${lines.replace(/</g, '&lt;')}</pre>`;
+    }
   }
 
   // ── Validation ─────────────────────────────────────────────────────────────

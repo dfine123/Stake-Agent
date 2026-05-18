@@ -27,36 +27,11 @@ window.DashboardComponent = (() => {
 
   // ── Config helpers ────────────────────────────────────────────────────────
 
-  function _parseLuckyNumbers(raw) {
-    if (!raw || !raw.trim()) return [];
-    return raw.split(',')
-      .map(s => parseInt(s.trim(), 10))
-      .filter(n => Number.isFinite(n) && n >= 0);
-  }
-
   async function _buildStartPayload() {
     const cfg   = window.SessionConfig.get();
     const token = await window.gambleAgent.keychain.get('stake_access_token');
     if (!token) throw new Error('Stake token not found in Keychain — check Credentials.');
-
-    return {
-      credentials: { stake_access_token: token },
-      session: {
-        currency:             cfg.currency,
-        top_target_usd:       cfg.top_target_usd,
-        secondary_target_usd: cfg.secondary_target_usd,
-        persona:              cfg.persona,
-        games_enabled:        cfg.games_enabled,
-        stop_loss:            cfg.stop_loss,
-        vibes: {
-          text:                  cfg.vibes.text,
-          lucky_numbers:         _parseLuckyNumbers(cfg.vibes.lucky_numbers),
-          bake_into_seed:        cfg.vibes.bake_into_seed,
-          influence_game_choice: cfg.vibes.influence_game_choice,
-        },
-      },
-      _dry_run: cfg.dry_run,
-    };
+    return window.SessionConfig.toEnginePayload(cfg, token);
   }
 
   // ── DOM helpers ───────────────────────────────────────────────────────────
@@ -377,7 +352,13 @@ window.DashboardComponent = (() => {
       S.status = 'idle';
       _renderControls();
       _hide('#db-feed-empty');
-      _addFeedEvent(`✗ Failed to start: ${res.error ?? 'unknown error'}`, 'feed-event-error');
+      const detail = res.payload?.detail ?? [];
+      if (detail.length > 0) {
+        _addFeedEvent(`✗ Engine rejected config (${detail.length} error${detail.length > 1 ? 's' : ''}):`, 'feed-event-error');
+        detail.forEach(e => _addFeedEvent(`    ${e.loc}: ${e.msg}`, 'feed-event-error'));
+      } else {
+        _addFeedEvent(`✗ Failed to start: ${res.error ?? 'unknown error'}`, 'feed-event-error');
+      }
     }
     // Success: wait for 'session_start' event to set status='running'
   }
