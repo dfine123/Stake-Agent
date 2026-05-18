@@ -149,6 +149,8 @@ class Orchestrator:
                 "top_target_usd": cfg.top_target_usd,
                 "secondary_target_usd": cfg.secondary_target_usd,
                 "start_balance": start_balance,
+                "start_balance_usd": start_balance_usd,
+                "rate": rate,
                 "vibe_seed": generate_seed(cfg.vibes.text, cfg.vibes.lucky_numbers),
                 "config": cfg.model_dump(mode="json"),
             })

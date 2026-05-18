@@ -149,11 +149,11 @@ class IPCServer:
         self.respond(cmd_id, "get_status", {"session_running": running, "paused": paused})
 
     async def _cmd_preflight(self, cmd_id: str, payload: dict) -> None:
-        token    = payload.get("stake_token", "").strip()
+        token    = payload.get("stake_access_token", "").strip()
         currency = payload.get("currency", "btc")
 
         if not token:
-            self.respond(cmd_id, "preflight", {"error": "stake_token required"}, ok=False)
+            self.respond(cmd_id, "preflight", {"error": "stake_access_token required"}, ok=False)
             return
 
         def debug_hook(direction: str, data: dict) -> None:
@@ -180,11 +180,11 @@ class IPCServer:
         })
 
     async def _cmd_get_balance(self, cmd_id: str, payload: dict) -> None:
-        token    = payload.get("stake_token", "").strip()
+        token    = payload.get("stake_access_token", "").strip()
         currency = payload.get("currency", "btc")
 
         if not token:
-            self.respond(cmd_id, "get_balance", {"error": "stake_token required"}, ok=False)
+            self.respond(cmd_id, "get_balance", {"error": "stake_access_token required"}, ok=False)
             return
 
         def debug_hook(direction: str, data: dict) -> None:

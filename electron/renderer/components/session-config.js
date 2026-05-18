@@ -453,6 +453,7 @@ window.SessionConfigComponent = (() => {
       if (err) { _showError(err); return; }
       _showError(null);
       _persist();
+      sessionStorage.setItem('gambleagent:launch', '1');
       window.App?.navigateTo('dashboard');
     });
   }
