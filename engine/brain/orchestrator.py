@@ -43,6 +43,7 @@ from engine.personas.steady import SteadyPersona
 from engine.stake.client import StakeClient
 from engine.stake.games.base import GameAdapter
 from engine.stake.games.dice import DiceAdapter
+from engine.stake.games.dry_run import DryRunAdapter
 from engine.stake.games.keno import KenoAdapter
 from engine.stake.games.limbo import LimboAdapter
 from engine.storage.db import SqliteLogger
@@ -79,9 +80,11 @@ class Orchestrator:
         self,
         config: SessionConfig,
         db_path: Path | str | None = None,
+        dry_run: bool = False,
     ) -> None:
         self._config = config
         self._db_path = db_path
+        self._dry_run = dry_run
 
         # State (lives only in the orchestrator — per house rule #8)
         self._recovery = RecoveryState(step=0)
@@ -104,6 +107,8 @@ class Orchestrator:
         async with StakeClient(self._config.credentials.stake_access_token) as client:
             adapters_all = _build_game_adapters(client)
             adapters = {g: adapters_all[g] for g in cfg.games_enabled}
+            if self._dry_run:
+                adapters = {g: DryRunAdapter(a) for g, a in adapters.items()}
 
             # Bake vibe → client seed before the first bet.
             if cfg.vibes.bake_into_seed:
