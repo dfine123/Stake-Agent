@@ -16,7 +16,7 @@ from typing import Any
 from engine.personas.base import BasePersona
 from engine.personas.recovery import MartingaleConfig, RecoveryState, apply_martingale
 
-# Default picks spread across 1–40 when vibes supply no valid keno numbers.
+# Default picks spread across 0–39 when vibes supply no valid keno numbers.
 _DEFAULT_KENO_PICKS: list[int] = [7, 14, 21, 28, 35]
 
 # Base game weights before vibe influence.
@@ -145,13 +145,13 @@ class SteadyPersona(BasePersona):
 # ---------------------------------------------------------------------------
 
 def _select_keno_picks(vibes: Any) -> list[int]:
-    """Return exactly 5 unique keno picks in [1, 40].
+    """Return exactly 5 unique keno picks in [0, 39].
 
     Priority: valid lucky_numbers from vibes → filled with defaults.
     Result is deterministic for a given set of lucky_numbers.
     """
     lucky: list[int] = getattr(vibes, "lucky_numbers", []) or []
-    valid = [n for n in lucky if isinstance(n, int) and 1 <= n <= 40]
+    valid = [n for n in lucky if isinstance(n, int) and 0 <= n <= 39]
 
     # Deduplicate while preserving order
     seen: set[int] = set()

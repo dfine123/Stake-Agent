@@ -1,58 +1,37 @@
 """Dice game adapter.
 
 Stake Originals — Dice.
-
-Confirmed mutation shape: Seuntjie900/DiceBot PD.cs + Stake.cs
-  mutation field:    diceRoll
-  state inline type: CasinoGameDice
-  condition enum:    CasinoGameDiceConditionEnum  (values: "above" | "below")
+GraphQL mutation: diceRoll. Confirmed working 2026-05-27.
 """
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 from typing import Any
 
 from engine.stake.client import StakeClient
-from engine.stake.games.base import BetResult, GameAdapter, parse_bet_response
+from engine.stake.games.base import BetResult, GameAdapter, gen_identifier, parse_bet_response
 
 CONDITION_ABOVE = "above"
 CONDITION_BELOW = "below"
 
-# CONFIRMED mutation — Seuntjie900/DiceBot PD.cs DiceBotDiceBet
-_DICE_BET_MUTATION = """
-mutation GambleAgentDiceBet(
-  $amount: Float!
-  $target: Float!
-  $condition: CasinoGameDiceConditionEnum!
-  $currency: CurrencyEnum!
-  $identifier: String!
-) {
-  diceRoll(
-    amount: $amount
-    target: $target
-    condition: $condition
-    currency: $currency
-    identifier: $identifier
-  ) {
+_DICE_ROLL_MUTATION = """
+mutation DiceRoll($amount: Float!, $currency: CurrencyEnum!, $target: Float!, $condition: CasinoGameDiceConditionEnum!, $identifier: String!) {
+  diceRoll(amount: $amount, currency: $currency, target: $target, condition: $condition, identifier: $identifier) {
     id
-    nonce
-    currency
+    active
     amount
+    createdAt
+    currency
+    game
     payout
+    payoutMultiplier
     state {
       ... on CasinoGameDice {
         result
         target
         condition
       }
-    }
-    createdAt
-    serverSeed { seedHash nonce }
-    clientSeed { seed }
-    user {
-      balances { available { amount currency } }
     }
   }
 }
@@ -90,15 +69,14 @@ class DiceAdapter(GameAdapter):
 
         variables = {
             "amount": float(amount),
+            "currency": currency.lower(),
             "target": float(target),
             "condition": condition,
-            "currency": currency.lower(),
-            "identifier": uuid.uuid4().hex,
+            "identifier": gen_identifier(),
         }
 
-        data = await self._client._gql(_DICE_BET_MUTATION, variables)
+        data = await self._client._gql(_DICE_ROLL_MUTATION, variables)
         return parse_bet_response(data, "diceRoll", amount)
 
     def persona_params(self, persona: Any, bankroll: Decimal, vibes: Any) -> dict:
-        # Steady: rolls above 50.5 (≈2x payout, ~49.5% win chance).
         return persona.dice_params(bankroll, vibes)

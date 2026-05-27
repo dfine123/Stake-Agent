@@ -1,12 +1,9 @@
 """Limbo game adapter.
 
 Stake Originals — Limbo.
+GraphQL mutation: limboBet. Confirmed working 2026-05-27.
 
-Mutation shape: UNVERIFIED. Built from the diceRoll pattern (Seuntjie900/DiceBot).
-On first live call, if Stake rejects the mutation, capture the real shape from
-DevTools (Network → graphql, place a limbo bet) and update _LIMBO_BET_MUTATION.
-
-Stake Limbo public info:
+Stake Limbo:
   - Pick a target multiplier (>= 1.01)
   - RNG draws a multiplier; you win at the target multiplier if RNG >= target
   - Max win 1,000,000x
@@ -14,48 +11,31 @@ Stake Limbo public info:
 
 from __future__ import annotations
 
-import uuid
 from decimal import Decimal
 from typing import Any
 
 from engine.stake.client import StakeClient
-from engine.stake.games.base import BetResult, GameAdapter, parse_bet_response
+from engine.stake.games.base import BetResult, GameAdapter, gen_identifier, parse_bet_response
 
 LIMBO_MIN_MULTIPLIER = 1.01
 LIMBO_MAX_MULTIPLIER = 1_000_000.0
 
-# UNVERIFIED — best-guess shape, mirrors the confirmed diceRoll pattern.
-# The variable name `multiplierTarget` is the most likely field name on Stake's
-# schema; could also be `target`. Verify and adjust on first live call.
 _LIMBO_BET_MUTATION = """
-mutation GambleAgentLimboBet(
-  $amount: Float!
-  $currency: CurrencyEnum!
-  $identifier: String!
-  $multiplierTarget: Float!
-) {
-  limboBet(
-    amount: $amount
-    currency: $currency
-    identifier: $identifier
-    multiplierTarget: $multiplierTarget
-  ) {
+mutation LimboBet($amount: Float!, $currency: CurrencyEnum!, $identifier: String!, $multiplierTarget: Float!) {
+  limboBet(amount: $amount, currency: $currency, identifier: $identifier, multiplierTarget: $multiplierTarget) {
     id
-    nonce
-    currency
+    active
     amount
+    createdAt
+    currency
+    game
     payout
+    payoutMultiplier
     state {
       ... on CasinoGameLimbo {
         result
         multiplierTarget
       }
-    }
-    createdAt
-    serverSeed { seedHash nonce }
-    clientSeed { seed }
-    user {
-      balances { available { amount currency } }
     }
   }
 }
@@ -94,7 +74,7 @@ class LimboAdapter(GameAdapter):
         variables = {
             "amount": float(amount),
             "currency": currency.lower(),
-            "identifier": uuid.uuid4().hex,
+            "identifier": gen_identifier(),
             "multiplierTarget": target_f,
         }
 
@@ -102,5 +82,4 @@ class LimboAdapter(GameAdapter):
         return parse_bet_response(data, "limboBet", amount)
 
     def persona_params(self, persona: Any, bankroll: Decimal, vibes: Any) -> dict:
-        # Steady: 2x–3x target multiplier.
         return persona.limbo_params(bankroll, vibes)
